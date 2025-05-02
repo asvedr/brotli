@@ -10,7 +10,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"os"
@@ -18,8 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/andybalholm/brotli/matchfinder"
-	"github.com/xyproto/randomstring"
+	"github.com/asvedr/brotli/matchfinder"
 )
 
 func checkCompressedData(compressedData, wantOriginalData []byte) error {
@@ -282,7 +280,7 @@ func TestDecoderStreaming(t *testing.T) {
 	writer := NewWriterOptions(pw, WriterOptions{Quality: 5, LGWin: 20})
 	reader := readerWithTimeout{NewReader(pr)}
 	defer func() {
-		go ioutil.ReadAll(pr) // swallow the "EOF" token from writer.Close
+		go io.ReadAll(pr) // swallow the "EOF" token from writer.Close
 		if err := writer.Close(); err != nil {
 			t.Errorf("writer.Close: %v", err)
 		}
@@ -531,11 +529,11 @@ func Encode(content []byte, options WriterOptions) ([]byte, error) {
 // Decode decodes Brotli encoded data.
 func Decode(encodedData []byte) ([]byte, error) {
 	r := NewReader(bytes.NewReader(encodedData))
-	return ioutil.ReadAll(r)
+	return io.ReadAll(r)
 }
 
 func BenchmarkEncodeLevels(b *testing.B) {
-	opticks, err := ioutil.ReadFile("testdata/Isaac.Newton-Opticks.txt")
+	opticks, err := os.ReadFile("testdata/Isaac.Newton-Opticks.txt")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -545,7 +543,7 @@ func BenchmarkEncodeLevels(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(opticks)))
 			for i := 0; i < b.N; i++ {
-				w := NewWriterLevel(ioutil.Discard, level)
+				w := NewWriterLevel(io.Discard, level)
 				w.Write(opticks)
 				w.Close()
 			}
@@ -554,7 +552,7 @@ func BenchmarkEncodeLevels(b *testing.B) {
 }
 
 func BenchmarkEncodeLevelsReset(b *testing.B) {
-	opticks, err := ioutil.ReadFile("testdata/Isaac.Newton-Opticks.txt")
+	opticks, err := os.ReadFile("testdata/Isaac.Newton-Opticks.txt")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -569,7 +567,7 @@ func BenchmarkEncodeLevelsReset(b *testing.B) {
 			b.ReportMetric(float64(len(opticks))/float64(buf.Len()), "ratio")
 			b.SetBytes(int64(len(opticks)))
 			for i := 0; i < b.N; i++ {
-				w.Reset(ioutil.Discard)
+				w.Reset(io.Discard)
 				w.Write(opticks)
 				w.Close()
 			}
@@ -578,7 +576,7 @@ func BenchmarkEncodeLevelsReset(b *testing.B) {
 }
 
 func BenchmarkEncodeLevelsResetV2(b *testing.B) {
-	opticks, err := ioutil.ReadFile("testdata/Isaac.Newton-Opticks.txt")
+	opticks, err := os.ReadFile("testdata/Isaac.Newton-Opticks.txt")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -593,7 +591,7 @@ func BenchmarkEncodeLevelsResetV2(b *testing.B) {
 			b.ReportMetric(float64(len(opticks))/float64(buf.Len()), "ratio")
 			b.SetBytes(int64(len(opticks)))
 			for i := 0; i < b.N; i++ {
-				w.Reset(ioutil.Discard)
+				w.Reset(io.Discard)
 				w.Write(opticks)
 				w.Close()
 			}
@@ -602,7 +600,7 @@ func BenchmarkEncodeLevelsResetV2(b *testing.B) {
 }
 
 func BenchmarkDecodeLevels(b *testing.B) {
-	opticks, err := ioutil.ReadFile("testdata/Isaac.Newton-Opticks.txt")
+	opticks, err := os.ReadFile("testdata/Isaac.Newton-Opticks.txt")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -617,14 +615,14 @@ func BenchmarkDecodeLevels(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(opticks)))
 			for i := 0; i < b.N; i++ {
-				io.Copy(ioutil.Discard, NewReader(bytes.NewReader(compressed)))
+				io.Copy(io.Discard, NewReader(bytes.NewReader(compressed)))
 			}
 		})
 	}
 }
 
 func test(t *testing.T, filename string, m matchfinder.MatchFinder, blockSize int) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -639,7 +637,7 @@ func test(t *testing.T, filename string, m matchfinder.MatchFinder, blockSize in
 	w.Close()
 	compressed := b.Bytes()
 	sr := NewReader(bytes.NewReader(compressed))
-	decompressed, err := ioutil.ReadAll(sr)
+	decompressed, err := io.ReadAll(sr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -651,7 +649,7 @@ func test(t *testing.T, filename string, m matchfinder.MatchFinder, blockSize in
 func benchmark(b *testing.B, filename string, m matchfinder.MatchFinder, blockSize int) {
 	b.StopTimer()
 	b.ReportAllocs()
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -669,7 +667,7 @@ func benchmark(b *testing.B, filename string, m matchfinder.MatchFinder, blockSi
 	b.ReportMetric(float64(len(data))/float64(buf.Len()), "ratio")
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		w.Reset(ioutil.Discard)
+		w.Reset(io.Discard)
 		w.Write(data)
 		w.Close()
 	}
@@ -743,10 +741,21 @@ func BenchmarkEncodeM0Lazy(b *testing.B) {
 	benchmark(b, "testdata/Isaac.Newton-Opticks.txt", matchfinder.M0{Lazy: true}, 1<<16)
 }
 
+func randomString(size int) string {
+	source := []rune("aeoiubdfgklmnoprstvchjqwxyz")
+	dst := make([]rune, size)
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	src_len := len(source)
+	for i := range size {
+		dst[i] = rune(rnd.Intn(src_len))
+	}
+	return string(dst)
+}
+
 func TestIssue51(t *testing.T) {
 	for i := 65536; i <= 65536*4; i += 65536 {
 		t.Run("compress data length: "+strconv.Itoa(i)+"bytes", func(t *testing.T) {
-			dataStr := randomstring.HumanFriendlyString(i)
+			dataStr := randomString(i)
 			dataBytes := []byte(dataStr)
 			buf := bytes.Buffer{}
 			w := NewWriterV2(&buf, 4)
